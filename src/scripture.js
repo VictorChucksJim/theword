@@ -1,1 +1,1 @@
-// Placeholder removed in next corrective commit; source file must be uploaded from local checkout.
+// Source file upload needs raw local content; temporary placeholder marker.
