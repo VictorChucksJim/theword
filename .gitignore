@@ -1,0 +1,14 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies and runtime
+node_modules/
+.npm/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
