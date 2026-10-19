@@ -1,1 +1,1 @@
-Unable to read local filesystem through GitHub code mode.
+// Placeholder removed in next corrective commit; source file must be uploaded from local checkout.
