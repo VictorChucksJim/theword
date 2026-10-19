@@ -1,7 +1,6 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalise } = require('../src/scripture');
-test('normalise spoken reference punctuation', () => {
-  assert.equal(normalise('John 3:16'), 'john 3 : 16');
+test('repository import status', () => {
+  assert.fail('Project import is incomplete. Restore source files from scripture-captions.zip before running tests.');
 });
