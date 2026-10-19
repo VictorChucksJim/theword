@@ -1,14 +1,8 @@
 # TheWord — Scripture Captions
 
-This repository is being prepared for the Scripture Captions MVP: live browser captions, Bible verse detection and a transparent vMix overlay.
+This repository is intended for the Scripture Captions MVP: live browser captions, Bible verse detection and a transparent vMix overlay.
 
-> **Repository status:** The initial project import is incomplete. The ZIP source code has not yet been transferred correctly, so do not run this repository yet.
-
-## Planned setup
-
-- Node.js 18 or newer
-- `npm start` to start the local server
-- `npm test` to run scripture detection tests
+> **Important: this repository is not yet a runnable copy of the app.** The files currently committed are setup notes and import-status markers; the original application files and Bible dataset from `scripture-captions.zip` have not been uploaded in full. Do not run `npm start` or `npm test` until the import is complete.
 
 ## Intended MVP features
 
@@ -17,6 +11,8 @@ This repository is being prepared for the Scripture Captions MVP: live browser c
 - Paraphrase suggestions for operator review
 - Transparent vMix browser overlay
 
-The app currently focuses on church/sermon mode; it does not fact-check meeting claims.
+The supplied ZIP includes a Node.js application and a Bible dataset. Before distributing the dataset, verify upstream attribution and licensing. Do not commit `.env` files, API credentials, private keys, or personal recordings.
 
-Before publishing broadly, verify attribution and licensing for Bible text data, and keep `.env` files and API credentials out of version control.
+## Complete the import
+
+From a computer with the ZIP extracted and Git installed, copy the original project files into this repository (replace the temporary `src/scripture.js` and `test/detect.test.js` markers with the original ZIP contents), review `git status`, then commit and push the full project. Include the `data/bible.json` file only after confirming its distribution rights.
