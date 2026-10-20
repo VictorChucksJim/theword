@@ -1,0 +1,43 @@
+[
+  {
+    "id": "amazing-grace",
+    "title": "Amazing Grace",
+    "author": "John Newton (1779)",
+    "lyrics": [
+      "Amazing grace! how sweet the sound, that saved a wretch like me!",
+      "I once was lost, but now am found; was blind, but now I see.",
+      "Through many dangers, toils and snares, I have already come;",
+      "'Tis grace hath brought me safe thus far, and grace will lead me home."
+    ]
+  },
+  {
+    "id": "holy-holy-holy",
+    "title": "Holy, Holy, Holy",
+    "author": "Reginald Heber (1826)",
+    "lyrics": [
+      "Holy, holy, holy! Lord God Almighty! Early in the morning our song shall rise to thee.",
+      "Holy, holy, holy! merciful and mighty, God in three Persons, blessed Trinity!",
+      "Holy, holy, holy! all the saints adore thee, casting down their golden crowns around the glassy sea."
+    ]
+  },
+  {
+    "id": "be-thou-my-vision",
+    "title": "Be Thou My Vision",
+    "author": "Traditional Irish hymn; translated by Mary Byrne (1905)",
+    "lyrics": [
+      "Be thou my vision, O Lord of my heart; naught be all else to me, save that thou art.",
+      "Thou my best thought, by day or by night, waking or sleeping, thy presence my light.",
+      "Be thou my wisdom, and thou my true word; I ever with thee and thou with me, Lord."
+    ]
+  },
+  {
+    "id": "when-i-survey",
+    "title": "When I Survey the Wondrous Cross",
+    "author": "Isaac Watts (1707)",
+    "lyrics": [
+      "When I survey the wondrous cross, on which the Prince of Glory died,",
+      "My richest gain I count but loss, and pour contempt on all my pride.",
+      "Forbid it, Lord, that I should boast, save in the death of Christ my God."
+    ]
+  }
+]
