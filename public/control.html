@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scripture Captions · Operator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #151b24; --panel2: #1b2330; --line: #263040;
+    --text: #e8edf4; --muted: #8b98ab; --accent: #f2c14e; --accent-ink: #1a1405;
+    --ok: #3fb97a; --warn: #e5a23a; --bad: #e5604d; --blue: #5aa8ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; min-height: 100vh; }
+  header {
+    display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; }
+  header h1 span { color: var(--accent); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ok .dot { background: var(--ok); } .pill.ok { color: var(--text); }
+  .pill.live .dot { background: var(--bad); animation: pulse 1.2s infinite; } .pill.live { color: var(--text); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .spacer { flex: 1; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px 28px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  section.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  section.card + section.card { margin-top: 16px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 0 0 10px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+
+  button, select, input[type=text], input[type=number] {
+    font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: #3a4a62; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  button.primary:hover { filter: brightness(1.07); }
+  button.danger { background: #3a1a17; border-color: #6d2c25; color: #ffb4a8; }
+  button.big { padding: 12px 22px; font-size: 15px; }
+  button.small { padding: 4px 10px; font-size: 12px; }
+
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row.tight { gap: 6px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  label.toggle { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+  label.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  /* transcript */
+  #transcript { height: 300px; overflow-y: auto; background: #0a0e14; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 15px; line-height: 1.55; }
+  #transcript .line { margin: 0 0 6px; }
+  #transcript .line .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: rgba(242,193,78,.16); color: var(--accent); margin-left: 6px; vertical-align: 1px; }
+  #transcript .interim { color: var(--muted); }
+  #transcript .empty { color: var(--muted); }
+  .warnbox { background: #2b2210; border: 1px solid #5b4619; color: #f1d08a; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; display: none; }
+  .hint { color: var(--muted); font-size: 12px; }
+
+  /* suggestions */
+  #suggestions { display: flex; flex-direction: column; gap: 10px; }
+  .sugg { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .sugg.fresh { border-color: var(--accent); }
+  .sugg .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .sugg .label { font-size: 16px; font-weight: 700; }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; letter-spacing: .03em; }
+  .badge.ref { background: rgba(63,185,122,.16); color: var(--ok); }
+  .badge.para { background: rgba(90,168,255,.16); color: var(--blue); }
+  .badge.manual { background: rgba(255,255,255,.08); color: var(--muted); }
+  .sugg .verse { font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 1.5; margin: 8px 0 10px; }
+  .sugg .verse sup { font-family: "Segoe UI", sans-serif; font-weight: 700; font-size: 10px; color: var(--accent); margin-right: 3px; }
+  .vtabs { display: flex; flex-wrap: wrap; gap: 4px; }
+  .vtab { font-size: 12px; padding: 3px 9px; border-radius: 6px; background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  .vtab.sel { background: #26324a; color: var(--text); border-color: #3d5174; }
+  .vtab .star { color: var(--accent); margin-left: 3px; }
+  .sugg .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .sugg .why { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .emptybox { color: var(--muted); padding: 14px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; }
+
+  /* settings grid */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .urlbox { display: flex; gap: 8px; }
+  .urlbox input { flex: 1; font-family: Consolas, monospace; font-size: 13px; }
+  ol.steps { margin: 10px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
+  ol.steps li { margin: 3px 0; }
+  ol.steps b { color: var(--text); font-weight: 600; }
+
+  /* preview */
+  .preview { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 1px solid var(--line);
+    background:
+      linear-gradient(135deg, #3a4a63 0%, #1f2a3b 100%); }
+  .preview .checker { position: absolute; inset: 0; opacity: .25;
+    background: conic-gradient(#fff 25%, transparent 0 50%, #fff 0 75%, transparent 0) 0 0 / 28px 28px; }
+  .preview iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #26324a; border: 1px solid #3d5174; padding: 8px 16px; border-radius: 99px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scripture <span>Captions</span></h1>
+  <span class="pill" id="pillMic"><span class="dot"></span><span id="pillMicText">Mic off</span></span>
+  <span class="pill" id="pillServer"><span class="dot"></span><span id="pillServerText">Connecting&hellip;</span></span>
+  <span class="spacer"></span>
+  <button class="danger" id="btnHide">Hide scripture on stream</button>
+</header>
+
+<main>
+  <div>
+    <section class="card">
+      <h2>Live transcript</h2>
+      <div class="warnbox" id="warnSR">This browser has no built-in speech recognition. Open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b>. You can still test with the typing box below.</div>
+      <div class="row" style="margin-bottom:12px">
+        <button class="primary big" id="btnMic">Start listening</button>
+        <label class="field">Speaker language / accent
+          <select id="selLang">
+            <option value="en-NG">English (Nigeria)</option>
+            <option value="en-US">English (United States)</option>
+            <option value="en-GB">English (United Kingdom)</option>
+            <option value="en-GH">English (Ghana)</option>
+            <option value="en-ZA">English (South Africa)</option>
+            <option value="en-IN">English (India)</option>
+          </select>
+        </label>
+        <button class="small" id="btnClearTx" style="margin-left:auto">Clear transcript</button>
+      </div>
+      <div id="transcript"><p class="empty">The words you hear will appear here. Click <b>Start listening</b>, then speak.</p></div>
+      <div class="row" style="margin-top:12px">
+        <input type="text" id="txtTest" style="flex:1; min-width:220px" placeholder="Test without a mic: type what a speaker might say, e.g. “turn to John three sixteen”">
+        <button id="btnTest">Send</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Chrome uses the microphone chosen in its site settings (the padlock beside the address). Pick the mic or mixer feed that carries the preacher's voice.</p>
+    </section>
+
+    <section class="card">
+      <h2>Output for vMix</h2>
+      <div class="urlbox">
+        <input type="text" id="outUrl" readonly>
+        <button id="btnCopy">Copy</button>
+      </div>
+      <ol class="steps">
+        <li>In vMix choose <b>Add Input &rarr; Web Browser</b>.</li>
+        <li>Paste the address above. Set width <b>1920</b> and height <b>1080</b> (match your project).</li>
+        <li>Place the input as a layer over your camera. The background is transparent.</li>
+      </ol>
+      <h2 style="margin-top:16px">Preview <span class="hint" style="text-transform:none; letter-spacing:0">what the overlay looks like on screen</span></h2>
+      <div class="preview" id="previewBox"><div class="checker"></div><iframe id="previewFrame" src="/output" title="Overlay preview"></iframe></div>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <h2>Scripture suggestions <button class="small" id="btnClearSugg">Clear</button></h2>
+      <div class="row" style="margin-bottom:12px">
+        <input type="text" id="txtLookup" style="flex:1; min-width:180px" placeholder="Look up a verse: Romans 8:28">
+        <button id="btnLookup">Look up</button>
+      </div>
+      <div id="suggestions"><div class="emptybox">When a speaker names a verse or paraphrases one, matches show up here. Pick a version and press <b>Show on stream</b>.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Stream settings</h2>
+      <label class="toggle"><input type="checkbox" id="setCaptionsOn"> Show live captions on stream</label>
+      <label class="toggle"><input type="checkbox" id="setAutoRef"> Auto-show scriptures when a reference is spoken</label>
+      <label class="toggle"><input type="checkbox" id="setAutoPara"> Auto-show very confident paraphrase matches (80%+)</label>
+      <div class="grid2" style="margin-top:8px">
+        <label class="field">Default version for spoken references
+          <select id="setVersion"></select>
+        </label>
+        <label class="field">Hide scripture after (seconds, 0 = stay)
+          <input type="number" id="setHideAfter" min="0" max="600">
+        </label>
+        <label class="field">Caption lines
+          <select id="setLines"><option>1</option><option>2</option><option>3</option></select>
+        </label>
+        <label class="field">Caption position
+          <select id="setPosition"><option value="bottom">Bottom</option><option value="top">Top</option></select>
+        </label>
+        <label class="field">Caption text size
+          <input type="range" id="setCapSize" min="2.2" max="6.5" step="0.1">
+        </label>
+        <label class="field">Scripture text size
+          <input type="range" id="setScrSize" min="1.8" max="5" step="0.1">
+        </label>
+      </div>
+      <div class="row" style="margin-top:12px"><button id="btnClearCaps">Clear captions now</button></div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var sessionId = 's' + Math.random().toString(36).slice(2, 9);
+  var versions = [];
+  var settings = {};
+  var listening = false, rec = null, restartTimer = null;
+  var committed = '';           // recent finalised speech, shown on the stream
+  var interim = '';
+  var capTimer = null, lastCapSent = 0, detectTimer = null, lastInterimDetected = '';
+  var suggestions = [];         // newest first
+
+  function api(path, method, body) {
+    return fetch(path, {
+      method: method || 'GET',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.statusText); return j; }); });
+  }
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('on'); }, 2200);
+  }
+  function setMicPill(on, text) {
+    $('pillMic').className = 'pill' + (on ? ' live' : '');
+    $('pillMicText').textContent = text;
+  }
+
+  /* ---------------- init ---------------- */
+  api('/api/info').then(function (info) {
+    versions = info.versions; settings = info.settings;
+    var sel = $('setVersion'); sel.innerHTML = '';
+    versions.forEach(function (v) { var o = document.createElement('option'); o.value = v.id; o.textContent = v.id + ' – ' + v.name; sel.appendChild(o); });
+    syncSettingsUI();
+    $('pillServer').className = 'pill ok'; $('pillServerText').textContent = 'Server connected';
+    $('outUrl').value = location.origin + '/output';
+  }).catch(function () { $('pillServerText').textContent = 'Server not reachable'; });
+
+  var savedLang = localStorage.getItem('sc-lang'); if (savedLang) $('selLang').value = savedLang;
+  $('selLang').addEventListener('change', function () {
+    localStorage.setItem('sc-lang', $('selLang').value);
+    if (listening) { stopListening(true); startListening(); }
+  });
+
+  /* ---------------- settings ---------------- */
+  function syncSettingsUI() {
+    $('setCaptionsOn').checked = !!settings.captionsOn;
+    $('setAutoRef').checked = !!settings.autoShowReferences;
+    $('setAutoPara').checked = !!settings.autoShowParaphrase;
+    $('setVersion').value = settings.version;
+    $('setHideAfter').value = settings.hideAfter;
+    $('setLines').value = String(settings.captionLines);
+    $('setPosition').value = settings.position;
+    $('setCapSize').value = settings.captionSize;
+    $('setScrSize').value = settings.scriptureSize;
+  }
+  function pushSettings(patch) {
+    Object.assign(settings, patch);
+    api('/api/settings', 'POST', patch).catch(function () { toast('Could not save setting'); });
+  }
+  $('setCaptionsOn').onchange = function () { pushSettings({ captionsOn: this.checked }); };
+  $('setAutoRef').onchange = function () { pushSettings({ autoShowReferences: this.checked }); };
+  $('setAutoPara').onchange = function () { pushSettings({ autoShowParaphrase: this.checked }); };
+  $('setVersion').onchange = function () { pushSettings({ version: this.value }); };
+  $('setHideAfter').onchange = function () { pushSettings({ hideAfter: Math.max(0, Math.min(600, parseInt(this.value, 10) || 0)) }); };
+  $('setLines').onchange = function () { pushSettings({ captionLines: parseInt(this.value, 10) }); };
+  $('setPosition').onchange = function () { pushSettings({ position: this.value }); };
+  $('setCapSize').oninput = function () { pushSettings({ captionSize: parseFloat(this.value) }); };
+  $('setScrSize').oninput = function () { pushSettings({ scriptureSize: parseFloat(this.value) }); };
+  $('btnHide').onclick = function () { api('/api/hide', 'POST', {}); };
+  $('btnClearCaps').onclick = function () { committed = ''; interim = ''; api('/api/clear-captions', 'POST', {}); };
+  $('btnCopy').onclick = function () {
+    $('outUrl').select();
+    (navigator.clipboard ? navigator.clipboard.writeText($('outUrl').value) : Promise.reject()).then(function () { toast('Address copied'); }, function () { document.execCommand('copy'); toast('Address copied'); });
+  };
+
+  /* ---------------- transcript ---------------- */
+  var txBox = $('transcript');
+  var interimEl = null;
+  function ensureNotEmpty() { var e = txBox.querySelector('.empty'); if (e) e.remove(); }
+  function addLine(text, tags) {
+    ensureNotEmpty();
+    var p = document.createElement('p'); p.className = 'line'; p.textContent = text;
+    (tags || []).forEach(function (t) { var s = document.createElement('span'); s.className = 'tag'; s.textContent = t; p.appendChild(s); });
+    if (interimEl) txBox.insertBefore(p, interimEl); else txBox.appendChild(p);
+    while (txBox.children.length > 250) txBox.removeChild(txBox.firstChild);
+    txBox.scrollTop = txBox.scrollHeight;
+    return p;
+  }
+  function showInterim(text) {
+    if (!text) { if (interimEl) { interimEl.remove(); interimEl = null; } return; }
+    ensureNotEmpty();
+    if (!interimEl) { interimEl = document.createElement('p'); interimEl.className = 'line interim'; txBox.appendChild(interimEl); }
+    interimEl.textContent = text;
+    txBox.scrollTop = txBox.scrollHeight;
+  }
+  $('btnClearTx').onclick = function () { txBox.innerHTML = '<p class="empty">Transcript cleared.</p>'; interimEl = null; };
+
+  /* ---------------- captions to stream ---------------- */
+  function sendCaption(final) {
+    var text = (committed + ' ' + interim).trim();
+    if (text.length > 400) text = text.slice(-400);
+    var now = Date.now();
+    var wait = final ? 0 : Math.max(0, 140 - (now - lastCapSent));
+    clearTimeout(capTimer);
+    capTimer = setTimeout(function () {
+      lastCapSent = Date.now();
+      api('/api/caption', 'POST', { text: text, final: !!final }).catch(function () {});
+    }, wait);
+  }
+
+  /* ---------------- detection ---------------- */
+  function detect(text, final) {
+    return api('/api/detect', 'POST', { text: text, final: final, sessionId: sessionId });
+  }
+  function handleDetection(res, text, lineEl) {
+    var tags = [];
+    (res.references || []).forEach(function (r) { addSuggestion(r, 'ref'); tags.push(r.label); });
+    if (!(res.references || []).length) {
+      (res.suggestions || []).forEach(function (r) { addSuggestion(r, 'para'); });
+      if ((res.suggestions || []).length) tags.push('possible: ' + res.suggestions[0].label);
+    }
+    if (lineEl && tags.length) tags.forEach(function (t) { var s = document.createElement('span'); s.className = 'tag'; s.textContent = t; lineEl.appendChild(s); });
+  }
+
+  /* ---------------- suggestion cards ---------------- */
+  function addSuggestion(ref, kind) {
+    var key = ref.label;
+    suggestions = suggestions.filter(function (s) { return s.ref.label !== key; });
+    var def = ref.bestVersion || settings.version;
+    suggestions.unshift({ ref: ref, kind: ref.source === 'manual' ? 'manual' : kind, version: def, at: Date.now() });
+    suggestions = suggestions.slice(0, 8);
+    renderSuggestions();
+  }
+  function renderSuggestions() {
+    var box = $('suggestions'); box.innerHTML = '';
+    if (!suggestions.length) { box.innerHTML = '<div class="emptybox">When a speaker names a verse or paraphrases one, matches show up here. Pick a version and press <b>Show on stream</b>.</div>'; return; }
+    suggestions.forEach(function (s, idx) {
+      var ref = s.ref;
+      var card = document.createElement('div'); card.className = 'sugg' + (Date.now() - s.at < 6000 ? ' fresh' : '');
+      var top = document.createElement('div'); top.className = 'top';
+      var lab = document.createElement('div'); lab.className = 'label'; lab.textContent = ref.label; top.appendChild(lab);
+      var b = document.createElement('span');
+      if (s.kind === 'ref') { b.className = 'badge ref'; b.textContent = 'Spoken reference'; }
+      else if (s.kind === 'para') { b.className = 'badge para'; b.textContent = 'Paraphrase · ' + Math.round(ref.confidence * 100) + '% match'; }
+      else { b.className = 'badge manual'; b.textContent = 'Lookup'; }
+      top.appendChild(b); card.appendChild(top);
+
+      var tabs = document.createElement('div'); tabs.className = 'vtabs';
+      versions.forEach(function (v) {
+        if (!ref.verses[v.id] || !ref.verses[v.id].length) return;
+        var t = document.createElement('button'); t.className = 'vtab' + (s.version === v.id ? ' sel' : ''); t.textContent = v.id; t.title = v.name;
+        if (ref.bestVersion === v.id) { var st = document.createElement('span'); st.className = 'star'; st.textContent = '★'; t.appendChild(st); t.title += ' (closest to the wording heard)'; }
+        t.onclick = function () { s.version = v.id; renderSuggestions(); };
+        tabs.appendChild(t);
+      });
+      card.appendChild(tabs);
+
+      var verse = document.createElement('div'); verse.className = 'verse';
+      var list = ref.verses[s.version] || [];
+      list.forEach(function (v, i) {
+        if (list.length > 1) { var sup = document.createElement('sup'); sup.textContent = v.n; verse.appendChild(sup); }
+        verse.appendChild(document.createTextNode(v.text + (i < list.length - 1 ? ' ' : '')));
+      });
+      card.appendChild(verse);
+      if (ref.partial) { var pm = document.createElement('div'); pm.className = 'hint'; pm.textContent = 'Showing the opening verses only.'; card.appendChild(pm); }
+
+      var act = document.createElement('div'); act.className = 'actions';
+      var show = document.createElement('button'); show.className = 'primary'; show.textContent = 'Show on stream';
+      show.onclick = function () {
+        api('/api/show', 'POST', { bookIdx: ref.bookIdx, chapter: ref.chapter, vStart: ref.vStart, vEnd: ref.vEnd, version: s.version, partial: ref.partial })
+          .then(function () { toast(ref.label + ' (' + s.version + ') is on stream'); }).catch(function (e) { toast(e.message); });
+      };
+      var dis = document.createElement('button'); dis.textContent = 'Dismiss';
+      dis.onclick = function () { suggestions.splice(idx, 1); renderSuggestions(); };
+      act.appendChild(show); act.appendChild(dis); card.appendChild(act);
+      box.appendChild(card);
+    });
+  }
+  $('btnClearSugg').onclick = function () { suggestions = []; renderSuggestions(); };
+
+  /* ---------------- manual lookup + test input ---------------- */
+  function doLookup() {
+    var q = $('txtLookup').value.trim(); if (!q) return;
+    api('/api/lookup?q=' + encodeURIComponent(q)).then(function (ref) { addSuggestion(ref, 'manual'); $('txtLookup').value = ''; })
+      .catch(function () { toast('Could not find “' + q + '”. Try “John 3:16”.'); });
+  }
+  $('btnLookup').onclick = doLookup;
+  $('txtLookup').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLookup(); });
+
+  function feedText(text) {
+    text = text.trim(); if (!text) return;
+    var line = addLine(text);
+    committed = (committed + ' ' + text).trim().slice(-400); interim = '';
+    sendCaption(true);
+    detect(text, true).then(function (res) { handleDetection(res, text, line); }).catch(function () {});
+  }
+  $('btnTest').onclick = function () { feedText($('txtTest').value); $('txtTest').value = ''; };
+  $('txtTest').addEventListener('keydown', function (e) { if (e.key === 'Enter') { feedText($('txtTest').value); $('txtTest').value = ''; } });
+
+  /* ---------------- speech recognition ---------------- */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $('warnSR').style.display = 'block'; $('btnMic').disabled = true; }
+
+  function startListening() {
+    if (!SR) return;
+    listening = true;
+    rec = new SR();
+    rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+    rec.lang = $('selLang').value;
+    rec.onstart = function () { setMicPill(true, 'Listening'); $('btnMic').textContent = 'Stop listening'; $('btnMic').classList.remove('primary'); $('btnMic').classList.add('danger'); };
+    rec.onresult = function (e) {
+      var finals = [], inter = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var r = e.results[i];
+        if (r.isFinal) finals.push(r[0].transcript.trim()); else inter += r[0].transcript;
+      }
+      finals.forEach(function (t) {
+        if (!t) return;
+        var line = addLine(t);
+        committed = (committed + ' ' + t).trim().slice(-400);
+        interim = '';
+        showInterim('');
+        sendCaption(true);
+        detect(t, true).then(function (res) { handleDetection(res, t, line); }).catch(function () {});
+      });
+      interim = inter.trim();
+      showInterim(interim);
+      if (interim) {
+        sendCaption(false);
+        // catch spoken references early, before the sentence is finished (throttled)
+        clearTimeout(detectTimer);
+        detectTimer = setTimeout(function () {
+          if (interim && interim !== lastInterimDetected) {
+            lastInterimDetected = interim;
+            detect(interim, false).then(function (res) { handleDetection(res, interim, null); }).catch(function () {});
+          }
+        }, 500);
+      }
+    };
+    rec.onerror = function (e) {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { toast('Microphone blocked. Allow it with the padlock beside the address.'); stopListening(true); }
+      else if (e.error === 'network') { toast('Speech service needs internet. Check the connection.'); }
+      else if (e.error === 'audio-capture') { toast('No microphone found.'); stopListening(true); }
+    };
+    rec.onend = function () {
+      if (listening) { clearTimeout(restartTimer); restartTimer = setTimeout(function () { try { rec.start(); } catch (err) { startListening(); } }, 250); }
+    };
+    try { rec.start(); } catch (err) { toast('Could not start the microphone.'); listening = false; }
+  }
+  function stopListening(quiet) {
+    listening = false; clearTimeout(restartTimer);
+    if (rec) { try { rec.onend = null; rec.stop(); } catch (e) {} }
+    setMicPill(false, 'Mic off');
+    $('btnMic').textContent = 'Start listening'; $('btnMic').classList.add('primary'); $('btnMic').classList.remove('danger');
+    showInterim(''); interim = '';
+    if (!quiet) toast('Stopped listening');
+  }
+  $('btnMic').onclick = function () { if (listening) stopListening(); else startListening(); };
+
+  /* ---------------- preview scaling ---------------- */
+  function scalePreview() {
+    var box = $('previewBox'), f = $('previewFrame');
+    f.style.transform = 'scale(' + (box.clientWidth / 1920) + ')';
+  }
+  new ResizeObserver(scalePreview).observe($('previewBox')); scalePreview();
+})();
+</script>
+</body>
+</html>

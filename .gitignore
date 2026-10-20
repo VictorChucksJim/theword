@@ -1,0 +1,11 @@
+
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+npm-debug.log*
+.DS_Store
+
+data/bible.json

@@ -1,0 +1,9 @@
+{
+  "name": "scripture-captions",
+  "version": "0.1.0",
+  "description": "Live captions plus Bible scripture detection, with a transparent overlay for vMix.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node --test test/detect.test.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
