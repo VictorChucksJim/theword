@@ -558,36 +558,47 @@
     try {
       monitorStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
       monitorContext = new AudioContext();
+      await monitorContext.resume();
       var source = monitorContext.createMediaStreamSource(monitorStream);
-      monitorAnalyser = monitorContext.createAnalyser(); monitorAnalyser.fftSize = 1024;
+      monitorAnalyser = monitorContext.createAnalyser(); monitorAnalyser.fftSize = 2048; monitorAnalyser.smoothingTimeConstant = 0.65;
       source.connect(monitorAnalyser);
       var bins = new Uint8Array(monitorAnalyser.frequencyBinCount);
+      var wave = new Uint8Array(monitorAnalyser.fftSize);
       $('btnMusicMonitor').textContent = 'Stop music detector';
-      setMusicStatus('Listening for music…', true);
+      setMusicStatus('Listening for audio…', true);
       monitorTimer = setInterval(function () {
         if (!monitorAnalyser) return;
         monitorAnalyser.getByteFrequencyData(bins);
-        var total = 0, active = 0, weighted = 0;
+        monitorAnalyser.getByteTimeDomainData(wave);
+        var total = 0, active = 0, weighted = 0, square = 0;
+        for (var j = 0; j < wave.length; j++) { var sample = (wave[j] - 128) / 128; square += sample * sample; }
+        var rms = Math.sqrt(square / wave.length);
         for (var i = 1; i < bins.length; i++) {
-          total += bins[i]; if (bins[i] > 16) active++;
+          total += bins[i]; if (bins[i] > 14) active++;
           weighted += bins[i] * i;
         }
         var density = active / bins.length;
         var centroid = total ? weighted / total / bins.length : 0;
-        var score = Math.min(1, density * 1.5 + centroid * 0.35);
-        musicWindows.push({ score: score, energy: total / bins.length });
+        var score = Math.min(1, density * 1.45 + centroid * 0.32);
+        musicWindows.push({ score: score, energy: total / bins.length, rms: rms });
         if (musicWindows.length > 16) musicWindows.shift();
-        var activeWindows = musicWindows.filter(function (w) { return w.energy > 7 && w.score > 0.38; }).length;
+        if (musicWindows.length >= 5 && musicWindows.slice(-5).every(function (w) { return w.rms < 0.012; })) {
+          setMusicStatus('No audio detected — check mic', false);
+          $('musicHint').textContent = 'The detector has microphone permission but is receiving almost no sound. Check the selected system input, mixer routing, and input level.';
+          if (lastModeSuggestion === 'music') lastModeSuggestion = '';
+          return;
+        }
+        var activeWindows = musicWindows.filter(function (w) { return w.rms > 0.018 && w.energy > 4 && w.score > 0.32; }).length;
         var likely = musicWindows.length >= 10 && activeWindows >= 7;
         if (likely) {
-          setMusicStatus('Likely music detected', true);
-          $('musicHint').textContent = 'The microphone spectrum looks music-like. This is a heuristic, not a reliable music classifier; confirm the mode before presentation.';
+          setMusicStatus('Music-like audio detected', true);
+          $('musicHint').textContent = 'The signal has sustained, broad-frequency energy. This is a heuristic—not song recognition. Confirm Music mode manually unless automatic switching is enabled.';
           if (settings.presentationMode === 'auto' && lastModeSuggestion !== 'music') {
-            lastModeSuggestion = 'music'; toast('Possible music detected — switch to Music mode?');
+            lastModeSuggestion = 'music'; toast('Music-like audio detected — switch to Music mode?');
             if (settings.autoSwitchMode) setPresentationMode('music');
           }
         } else if (musicWindows.length >= 10) {
-          setMusicStatus('No strong music signal', true);
+          setMusicStatus(rms > 0.018 ? 'Audio active; no music pattern' : 'Waiting for audio', true);
           if (lastModeSuggestion === 'music') lastModeSuggestion = '';
         }
       }, 400);
