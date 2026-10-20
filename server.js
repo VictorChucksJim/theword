@@ -155,13 +155,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/caption') {
       const { text = '', final = false } = await readBody(req);
       state.caption = { text: String(text).slice(0, 600), final: !!final, at: Date.now() };
-      if (state.settings.captionsOn) broadcast('caption', state.caption);
+      if (state.settings.captionsOn && (state.settings.presentationMode !== 'music' || state.settings.liveLyricsEnabled)) broadcast('caption', state.caption);
       return sendJSON(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/detect') {
       const { text = '', final = true, sessionId = 'default' } = await readBody(req);
       const t0 = Date.now();
+      if (state.settings.presentationMode === 'music') return sendJSON(res, 200, { references: [], suggestions: [], autoShown: null, ms: 0 });
       const { references, suggestions } = scripture.detect(String(text).slice(0, 800), { sessionId, final });
       let autoShown = null;
       // while the speaker is still talking (interim text) skip bare chapters, which may still become a verse
