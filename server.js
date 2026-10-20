@@ -34,11 +34,16 @@ const defaults = {
   autoSwitchMode: false,    // operator-controlled safety default
   hymnSearchEnabled: true,
   liveLyricsEnabled: true,
+  overlayOn: true,
+  captionColor: '#ffffff', captionBackground: '#000000', captionBackgroundOpacity: 0.78,
+  captionAlign: 'center', captionFont: 'sans-serif', lyricSize: 4.2,
+  lyricColor: '#ffffff', lyricBackground: '#000000', lyricBackgroundOpacity: 0.82,
 };
 const state = {
   settings: { ...defaults },
   caption: { text: '', final: true, at: 0 },
   scripture: null,         // { ref, version }
+  lyric: null,             // { title, author, lines, index }
 };
 const clients = new Set();
 
@@ -69,6 +74,25 @@ function showScripture(ref, version) {
 function hideScripture() {
   state.scripture = null;
   broadcast('scripture', null);
+}
+
+const HYMNS_PATH = path.join(__dirname, 'data', 'hymns.json');
+function loadHymns() { try { const v=JSON.parse(fs.readFileSync(HYMNS_PATH,'utf8')); return Array.isArray(v)?v:[]; } catch(e) { console.error('Could not load data/hymns.json:',e.message); return []; } }
+function saveHymns(hymns) { fs.writeFileSync(HYMNS_PATH,JSON.stringify(hymns,null,2)+'\n','utf8'); }
+function cleanHymn(input) {
+  if(!input||typeof input!=='object')return null;
+  const title=String(input.title||'').trim().slice(0,160), author=String(input.author||'Unknown / not supplied').trim().slice(0,160);
+  const lyrics=Array.isArray(input.lyrics)?input.lyrics.map(x=>String(x||'').trim().slice(0,1200)).filter(Boolean).slice(0,300):String(input.lyrics||'').split(/\r?\n/).map(x=>x.trim().slice(0,1200)).filter(Boolean).slice(0,300);
+  if(!title||!lyrics.length)return null;
+  const id=String(input.id||title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')).slice(0,180);
+  return {id:id||('song-'+Date.now()),title,author,lyrics};
+}
+function hideLyrics(){state.lyric=null;broadcast('lyrics',null);}
+function showLyrics(body){
+  const lines=Array.isArray(body.lines)?body.lines.map(x=>String(x||'').trim()).filter(Boolean).slice(0,300):[]; if(!lines.length)return false;
+  const index=Math.max(0,Math.min(lines.length-1,Number.isInteger(body.index)?body.index:0));
+  state.lyric={title:String(body.title||'Live lyrics').slice(0,160),author:String(body.author||'').slice(0,160),lines,index,shownAt:Date.now()};
+  broadcast('lyrics',state.lyric);return true;
 }
 
 // ------------------------------------------------------------ http helpers
@@ -137,7 +161,7 @@ const server = http.createServer(async (req, res) => {
         'X-Accel-Buffering': 'no',
       });
       res.write('retry: 1000\n\n');
-      res.write(`event: hello\ndata: ${JSON.stringify({ settings: state.settings, caption: state.caption, scripture: state.scripture })}\n\n`);
+      res.write(`event: hello\ndata: ${JSON.stringify({ settings: state.settings, caption: state.caption, scripture: state.scripture, lyric: state.lyric })}\n\n`);
       clients.add(res);
       const ping = setInterval(() => res.write(': ping\n\n'), 15000);
       req.on('close', () => { clearInterval(ping); clients.delete(res); });
@@ -155,7 +179,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/caption') {
       const { text = '', final = false } = await readBody(req);
       state.caption = { text: String(text).slice(0, 600), final: !!final, at: Date.now() };
-      if (state.settings.captionsOn && (state.settings.presentationMode !== 'music' || state.settings.liveLyricsEnabled)) broadcast('caption', state.caption);
+      if (state.settings.overlayOn && state.settings.captionsOn && (state.settings.presentationMode !== 'music' || state.settings.liveLyricsEnabled)) broadcast('caption', state.caption);
       return sendJSON(res, 200, { ok: true });
     }
 
@@ -187,11 +211,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/hymns') {
+      if (url.searchParams.get('all') === '1') return sendJSON(res, 200, { results: loadHymns() });
       if (!state.settings.hymnSearchEnabled) return sendJSON(res, 200, { results: [] });
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
       if (q.length < 2) return sendJSON(res, 200, { results: [] });
-      const hymns = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'hymns.json'), 'utf8'));
-      const terms = q.split(/\\s+/).filter(Boolean);
+      const hymns = loadHymns();
+      const terms = q.split(/\s+/).filter(Boolean);
       const results = hymns.map((h) => {
         const hay = (h.title + ' ' + h.author + ' ' + h.lyrics.join(' ')).toLowerCase();
         const hits = terms.filter((term) => hay.includes(term)).length;
@@ -199,6 +224,16 @@ const server = http.createServer(async (req, res) => {
       }).filter((h) => h.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
       return sendJSON(res, 200, { results });
     }
+
+    if (req.method === 'POST' && url.pathname === '/api/hymns') {
+      const body=await readBody(req), incoming=Array.isArray(body.hymns)?body.hymns:[body.hymn||body];
+      const byId=new Map(loadHymns().map(h=>[String(h.id||h.title).toLowerCase(),h]));let added=0,updated=0;
+      for(const item of incoming.slice(0,500)){const hymn=cleanHymn(item);if(!hymn)continue;const key=hymn.id.toLowerCase();if(byId.has(key))updated++;else added++;byId.set(key,hymn);}
+      const saved=[...byId.values()];saveHymns(saved);return sendJSON(res,200,{ok:true,count:saved.length,added,updated});
+    }
+    if (req.method === 'POST' && url.pathname === '/api/lyrics') {const body=await readBody(req);if(!showLyrics(body))return sendJSON(res,400,{error:'At least one lyric line is required'});return sendJSON(res,200,{ok:true,lyric:state.lyric});}
+    if (req.method === 'POST' && url.pathname === '/api/lyrics/next') {if(!state.lyric)return sendJSON(res,404,{error:'No song is on stream'});if(state.lyric.index>=state.lyric.lines.length-1)hideLyrics();else{state.lyric.index++;broadcast('lyrics',state.lyric);}return sendJSON(res,200,{ok:true,lyric:state.lyric});}
+    if (req.method === 'POST' && url.pathname === '/api/lyrics/hide') {hideLyrics();return sendJSON(res,200,{ok:true});}
 
     if (req.method === 'GET' && url.pathname === '/api/lookup') {
       const ref = scripture.lookup(url.searchParams.get('q') || '');
@@ -236,9 +271,16 @@ const server = http.createServer(async (req, res) => {
       for (const k of Object.keys(defaults)) {
         if (!(k in incoming)) continue;
         if (typeof incoming[k] === typeof defaults[k]) state.settings[k] = incoming[k];
+        if (['captionColor','captionBackground','lyricColor','lyricBackground'].includes(k) && !/^#[0-9a-f]{6}$/i.test(String(incoming[k]))) state.settings[k]=defaults[k];
+        if (['captionBackgroundOpacity','lyricBackgroundOpacity'].includes(k)) state.settings[k]=Math.max(0,Math.min(1,Number(incoming[k])));
+        if (k==='captionAlign'&&!['left','center','right'].includes(incoming[k]))state.settings[k]=defaults[k];
+        if (k==='captionFont'&&!['sans-serif','serif','monospace'].includes(incoming[k]))state.settings[k]=defaults[k];
+        if (k==='lyricSize')state.settings[k]=Math.max(2,Math.min(8,Number(incoming[k])));
       }
       if (!scripture.versions.includes(state.settings.version)) state.settings.version = defaults.version;
       broadcast('settings', state.settings);
+      if(!state.settings.overlayOn){broadcast('caption',{text:'',final:true,at:Date.now()});broadcast('scripture',null);broadcast('lyrics',null);}
+      else{broadcast('caption',state.caption);broadcast('scripture',state.scripture);broadcast('lyrics',state.lyric);}
       return sendJSON(res, 200, state.settings);
     }
 

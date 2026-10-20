@@ -8,7 +8,8 @@
   :root {
     --cap-size: 3.6vw;
     --scr-size: 2.7vw;
-    --accent: #f2c14e;
+    --accent: #f2c14e; --cap-color:#ffffff; --cap-bg:rgba(0,0,0,.78); --cap-align:center; --cap-font:sans-serif;
+    --lyric-size:4.2vw; --lyric-color:#ffffff; --lyric-bg:rgba(0,0,0,.82);
   }
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
   body {
@@ -67,19 +68,20 @@
   }
   #captionWrap.on { opacity: 1; }
   #caption {
-    background: rgba(0, 0, 0, 0.78);
-    color: #fff; text-align: center;
-    font-size: var(--cap-size); line-height: 1.28; font-weight: 600;
+    background:var(--cap-bg);color:var(--cap-color);text-align:var(--cap-align);font-family:var(--cap-font);
+    font-size:var(--cap-size);line-height:1.28;font-weight:600;
     padding: 0.8vw 2vw 1vw; border-radius: 0.9vw;
     text-shadow: 0 0.1vw 0.3vw rgba(0,0,0,.6);
     overflow: hidden;
     min-width: 12vw;
   }
   #caption .interim { opacity: .82; }
+  #lyricsWrap{align-self:center;max-width:100%;width:100%;display:none;opacity:0;transition:opacity .3s}#lyricsWrap.on{display:block;opacity:1}#lyricsCard{margin:0 auto;max-width:92%;background:var(--lyric-bg);color:var(--lyric-color);border-radius:1vw;padding:1.2vw 2vw 1.4vw;text-align:center;box-shadow:0 .5vw 2vw rgba(0,0,0,.35)}#lyricTitle{font-size:calc(var(--lyric-size)*.42);opacity:.75;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.45em}#lyricLine{font-size:var(--lyric-size);line-height:1.35;font-weight:700;white-space:pre-wrap;text-shadow:0 .1vw .3vw rgba(0,0,0,.6)}body.overlay-off #stage{visibility:hidden}
 </style>
 </head>
 <body>
 <div id="stage">
+  <div id="lyricsWrap"><div id="lyricsCard"><div id="lyricTitle"></div><div id="lyricLine"></div></div></div>
   <div id="captionWrap"><div id="caption"></div></div>
   <div id="scripture">
     <div class="head"><div class="ref" id="ref"></div><div class="ver" id="ver"></div></div>
@@ -92,7 +94,7 @@
 (function () {
   var settings = {
     captionsOn: true, captionLines: 2, captionSize: 3.6, scriptureSize: 2.7,
-    captionClearAfter: 6, hideAfter: 25, position: 'bottom'
+    captionClearAfter:6,hideAfter:25,position:'bottom',overlayOn:true,captionColor:'#ffffff',captionBackground:'#000000',captionBackgroundOpacity:.78,captionAlign:'center',captionFont:'sans-serif',lyricSize:4.2,lyricColor:'#ffffff',lyricBackground:'#000000',lyricBackgroundOpacity:.82,liveLyricsEnabled:true
   };
   var stageEl = document.getElementById('stage');
   var capWrap = document.getElementById('captionWrap');
@@ -102,15 +104,20 @@
   var verEl = document.getElementById('ver');
   var bodyEl = document.getElementById('verseBody');
   var moreEl = document.getElementById('more');
+  var lyricsWrap=document.getElementById('lyricsWrap'),lyricTitle=document.getElementById('lyricTitle'),lyricLine=document.getElementById('lyricLine');
   var clearTimer = null, hideTimer = null, hideDomTimer = null;
 
   function applySettings() {
     document.documentElement.style.setProperty('--cap-size', settings.captionSize + 'vw');
     document.documentElement.style.setProperty('--scr-size', settings.scriptureSize + 'vw');
-    document.body.classList.toggle('top', settings.position === 'top');
-    if (!settings.captionsOn) capWrap.classList.remove('on');
+    document.body.classList.toggle('top',settings.position==='top');document.body.classList.toggle('overlay-off',settings.overlayOn===false);
+    document.documentElement.style.setProperty('--cap-color',settings.captionColor||'#ffffff');document.documentElement.style.setProperty('--cap-bg','rgba('+hexToRgb(settings.captionBackground||'#000000')+','+(settings.captionBackgroundOpacity==null?.78:settings.captionBackgroundOpacity)+')');document.documentElement.style.setProperty('--cap-align',settings.captionAlign||'center');document.documentElement.style.setProperty('--cap-font',settings.captionFont||'sans-serif');
+    document.documentElement.style.setProperty('--lyric-size',(settings.lyricSize||4.2)+'vw');document.documentElement.style.setProperty('--lyric-color',settings.lyricColor||'#ffffff');document.documentElement.style.setProperty('--lyric-bg','rgba('+hexToRgb(settings.lyricBackground||'#000000')+','+(settings.lyricBackgroundOpacity==null?.82:settings.lyricBackgroundOpacity)+')');
+    if(!settings.captionsOn)capWrap.classList.remove('on');if(!settings.liveLyricsEnabled||!settings.captionsOn)lyricsWrap.classList.remove('on');
   }
 
+  function hexToRgb(hex){var h=String(hex||'#000000').replace('#','');if(!/^[0-9a-f]{6}$/i.test(h))h='000000';return parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16);}
+  function showLyrics(s){if(!s||settings.overlayOn===false||!settings.captionsOn||!settings.liveLyricsEnabled){lyricsWrap.classList.remove('on');setTimeout(function(){if(!lyricsWrap.classList.contains('on'))lyricsWrap.style.display='none';},320);return;}lyricsWrap.style.display='block';lyricTitle.textContent=s.title+(s.author?' · '+s.author:'');lyricLine.textContent=(s.lines||[])[s.index]||'';requestAnimationFrame(function(){lyricsWrap.classList.add('on');});}
   /* ---------- captions ---------- */
   function lineCount(el) {
     var lh = parseFloat(getComputedStyle(el).lineHeight);
@@ -119,7 +126,7 @@
   }
 
   function showCaption(text, final) {
-    if (!settings.captionsOn) return;
+    if (!settings.overlayOn || !settings.captionsOn) return;
     text = (text || '').replace(/\s+/g, ' ').trim();
     clearTimeout(clearTimer);
     if (!text) { capWrap.classList.remove('on'); return; }
@@ -151,7 +158,7 @@
 
   function showScripture(s, remainingMs) {
     clearTimeout(hideTimer); clearTimeout(hideDomTimer);
-    if (!s) {
+    if (!s || settings.overlayOn === false) {
       scrEl.classList.remove('on');
       hideDomTimer = setTimeout(function () { scrEl.style.display = 'none'; }, 500);
       return;
@@ -185,12 +192,14 @@
         var remain = settings.hideAfter > 0 ? (d.scripture.shownAt + settings.hideAfter * 1000 - Date.now()) : null;
         if (remain === null || remain > 0) showScripture(d.scripture, remain);
       } else showScripture(null);
+      showLyrics(d.lyric || null);
     });
     es.addEventListener('caption', function (e) { var d = JSON.parse(e.data); showCaption(d.text, d.final); });
+    es.addEventListener('lyrics',function(e){showLyrics(JSON.parse(e.data));});
     es.addEventListener('scripture', function (e) { showScripture(JSON.parse(e.data)); });
     es.addEventListener('settings', function (e) {
       Object.assign(settings, JSON.parse(e.data)); applySettings();
-      if (scrEl.classList.contains('on')) fitScripture();
+      if(scrEl.classList.contains('on'))fitScripture();if(settings.overlayOn===false){showScripture(null);showLyrics(null);capWrap.classList.remove('on');}
     });
     es.onerror = function () { /* browser retries automatically */ };
   }

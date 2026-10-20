@@ -47,9 +47,19 @@ Hymn search is enabled by default and currently uses a small starter collection 
 
 Settings are held in server memory for the current run; they reset to defaults when the server restarts.
 
+## Church presentation tools
+
+- Switch between **Sermon / Scripture** and **Music / Lyrics**. Auto mode flags music-like audio; automatic switching is off by default because spectrum heuristics can confuse speech, instruments, and room noise.
+- Search the local hymn library by title, author, or lyrics. Add songs or import/export JSON from the operator page; additions are saved to `data/hymns.json`.
+- Select a hymn and use **Next lyric line** to advance the transparent lyric overlay.
+- The teleprompter supports sermon notes, adjustable scroll speed, pause/reset, fullscreen, and mirrored preview.
+- Shortcuts (when not typing): **Ctrl+Shift+L** listening, **Ctrl+Shift+M** sermon/music, **Ctrl+Shift+O** stream overlay, **Ctrl+Shift+N** next lyric, **Ctrl+Shift+P** teleprompter.
+- Output settings include caption font, colour, background opacity, alignment, and lyric typography. Visual settings reset when the server restarts; the hymn library is saved to disk.
+
 ## Known limits of this first version
 
-- Browser speech recognition is decent but not perfect with strong accents, background music or a distant mic. A paid streaming service (Deepgram, AssemblyAI, Azure) is the natural upgrade and the rest of the app would not change.
+- Browser speech recognition is designed for speech, not song identification. The music monitor is a microphone-spectrum heuristic, not an AI music classifier; use operator confirmation and the local hymn library. It may not match a song if sung words are not recognized.
+- Import only lyrics you have permission to store or display.
 - Paraphrase matching works on single verses and wording. A loose idea with no distinctive words may not be found, and very famous verses are matched best.
 - Captions are not fact-checked in this version (church mode only).
 

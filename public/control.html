@@ -97,6 +97,9 @@
   .preview iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #26324a; border: 1px solid #3d5174; padding: 8px 16px; border-radius: 99px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; }
   .toast.on { opacity: 1; }
+  .shortcut-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.shortcut-list span{border:1px solid var(--line);border-radius:6px;padding:4px 8px;color:var(--muted);font-size:12px}
+  .song-editor,.teleprompter{display:grid;gap:8px}.song-editor textarea,#teleText{width:100%;min-height:100px;resize:vertical;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .tele-view{height:220px;overflow:auto;background:#080b10;border:1px solid var(--line);border-radius:8px;padding:20px;font-size:24px;line-height:1.7;white-space:pre-wrap}.tele-view.mirror{transform:scaleX(-1)}.setting-color{min-width:0;width:100%;height:38px;padding:3px}
 </style>
 </head>
 <body>
@@ -105,6 +108,7 @@
   <span class="pill" id="pillMic"><span class="dot"></span><span id="pillMicText">Mic off</span></span>
   <span class="pill" id="pillServer"><span class="dot"></span><span id="pillServerText">Connecting&hellip;</span></span>
   <span class="spacer"></span>
+  <button id="btnOverlayToggle">Toggle stream output</button>
   <button class="danger" id="btnHide">Hide scripture on stream</button>
 </header>
 
@@ -153,7 +157,8 @@
         <button id="btnMusicToSermon">Sermon mode</button>
         <button id="btnMusicToMusic">Music mode</button>
       </div>
-      <p class="hint" id="musicHint" style="margin:8px 0 0">Auto mode watches the microphone for likely music. Automatic switching is off by default; confirm changes manually during service.</p>
+      <div class="row tight" style="margin-top:8px"><button id="btnNextLyric">Next lyric line</button><button id="btnHideLyrics">Hide lyrics</button></div>
+      <p class="hint" id="musicHint" style="margin:8px 0 0">Audio analysis can flag music-like sound but cannot identify a song reliably. Use the local library and operator confirmation.</p>
     </section>
 
     <section class="card">
@@ -191,9 +196,16 @@
         <button id="btnHymnSearch">Search</button>
       </div>
       <div id="hymnResults"><div class="emptybox">Search the included starter collection of public-domain hymns. Recognized sung words can also help find a matching stanza.</div></div>
-      <p class="hint">The starter collection is intentionally small. Add more verified public-domain hymns or church-owned lyrics to data/hymns.json.</p>
+      <div class="song-editor" style="margin-top:14px"><h2 style="margin:0">Add a song to the local library</h2>
+        <input type="text" id="songTitle" placeholder="Song or hymn title"><input type="text" id="songAuthor" placeholder="Author / source (optional)"><textarea id="songLyrics" placeholder="Paste lyrics here, one line per line."></textarea>
+        <div class="row"><button class="primary" id="btnSaveSong">Save to local library</button><button id="btnExportSongs">Export library JSON</button></div>
+        <h2 style="margin:8px 0 0">Import songs</h2><textarea id="songImportJson" placeholder='Paste JSON array: [{"title":"My Song","author":"...","lyrics":["Line 1","Line 2"]}]'></textarea><button id="btnImportSongs">Import JSON into local library</button>
+        <p class="hint">Songs are stored on this server in data/hymns.json. Import only lyrics you have permission to store and display.</p></div>
     </section>
-
+    <section class="card"><h2>Teleprompter</h2><div class="teleprompter"><textarea id="teleText" placeholder="Paste sermon notes, an outline, or song lyrics here."></textarea><div class="tele-view" id="teleView">Teleprompter preview appears here.</div>
+      <div class="row"><label class="field" style="flex:1">Scroll speed<input type="range" id="teleSpeed" min="0" max="8" step="0.5" value="2"></label><label class="toggle"><input type="checkbox" id="teleMirror"> Mirror preview</label></div>
+      <div class="row"><button class="primary" id="btnTeleStart">Start scrolling</button><button id="btnTelePause">Pause</button><button id="btnTeleReset">Reset</button><button id="btnTeleFullscreen">Fullscreen</button></div></div></section>
+    <section class="card"><h2>Keyboard shortcuts</h2><div class="shortcut-list"><span>Ctrl+Shift+L · Listen</span><span>Ctrl+Shift+M · Sermon/music</span><span>Ctrl+Shift+O · Stream output</span><span>Ctrl+Shift+N · Next lyric</span><span>Ctrl+Shift+P · Teleprompter</span></div><p class="hint">Shortcuts are ignored while typing in an input, textarea, or select.</p></section>
     <section class="card">
       <h2>Stream settings</h2>
       <label class="toggle"><input type="checkbox" id="setCaptionsOn"> Show live captions on stream</label>
@@ -215,9 +227,16 @@
         <label class="field">Caption text size
           <input type="range" id="setCapSize" min="2.2" max="6.5" step="0.1">
         </label>
-        <label class="field">Scripture text size
-          <input type="range" id="setScrSize" min="1.8" max="5" step="0.1">
-        </label>
+        <label class="field">Scripture text size<input type="range" id="setScrSize" min="1.8" max="5" step="0.1"></label>
+        <label class="field">Caption text colour<input type="color" class="setting-color" id="setCapColor" value="#ffffff"></label>
+        <label class="field">Caption background colour<input type="color" class="setting-color" id="setCapBg" value="#000000"></label>
+        <label class="field">Caption background opacity<input type="range" id="setCapOpacity" min="0" max="1" step="0.05"></label>
+        <label class="field">Caption alignment<select id="setCapAlign"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+        <label class="field">Caption font<select id="setCapFont"><option value="sans-serif">Sans serif</option><option value="serif">Serif</option><option value="monospace">Monospace</option></select></label>
+        <label class="field">Lyrics text colour<input type="color" class="setting-color" id="setLyricColor" value="#ffffff"></label>
+        <label class="field">Lyrics background colour<input type="color" class="setting-color" id="setLyricBg" value="#000000"></label>
+        <label class="field">Lyrics background opacity<input type="range" id="setLyricOpacity" min="0" max="1" step="0.05"></label>
+        <label class="field">Lyrics text size<input type="range" id="setLyricSize" min="2" max="8" step="0.1"></label>
       </div>
       <div class="row" style="margin-top:12px"><button id="btnClearCaps">Clear captions now</button></div>
     </section>
@@ -276,6 +295,8 @@
     $('setAutoSwitch').checked = !!settings.autoSwitchMode;
     $('setHymnSearch').checked = settings.hymnSearchEnabled !== false;
     $('setLiveLyrics').checked = settings.liveLyricsEnabled !== false;
+    $('setCapColor').value=settings.captionColor||'#ffffff';$('setCapBg').value=settings.captionBackground||'#000000';$('setCapOpacity').value=settings.captionBackgroundOpacity==null?.78:settings.captionBackgroundOpacity;
+    $('setCapAlign').value=settings.captionAlign||'center';$('setCapFont').value=settings.captionFont||'sans-serif';$('setLyricColor').value=settings.lyricColor||'#ffffff';$('setLyricBg').value=settings.lyricBackground||'#000000';$('setLyricOpacity').value=settings.lyricBackgroundOpacity==null?.82:settings.lyricBackgroundOpacity;$('setLyricSize').value=settings.lyricSize||4.2;
     $('setAutoRef').checked = !!settings.autoShowReferences;
     $('setAutoPara').checked = !!settings.autoShowParaphrase;
     $('setVersion').value = settings.version;
@@ -294,6 +315,7 @@
   $('setAutoSwitch').onchange = function () { pushSettings({ autoSwitchMode: this.checked }); };
   $('setHymnSearch').onchange = function () { pushSettings({ hymnSearchEnabled: this.checked }); };
   $('setLiveLyrics').onchange = function () { pushSettings({ liveLyricsEnabled: this.checked }); };
+  $('setCapColor').oninput=function(){pushSettings({captionColor:this.value});};$('setCapBg').oninput=function(){pushSettings({captionBackground:this.value});};$('setCapOpacity').oninput=function(){pushSettings({captionBackgroundOpacity:parseFloat(this.value)});};$('setCapAlign').onchange=function(){pushSettings({captionAlign:this.value});};$('setCapFont').onchange=function(){pushSettings({captionFont:this.value});};$('setLyricColor').oninput=function(){pushSettings({lyricColor:this.value});};$('setLyricBg').oninput=function(){pushSettings({lyricBackground:this.value});};$('setLyricOpacity').oninput=function(){pushSettings({lyricBackgroundOpacity:parseFloat(this.value)});};$('setLyricSize').oninput=function(){pushSettings({lyricSize:parseFloat(this.value)});};
   $('setAutoRef').onchange = function () { pushSettings({ autoShowReferences: this.checked }); };
   $('setAutoPara').onchange = function () { pushSettings({ autoShowParaphrase: this.checked }); };
   $('setVersion').onchange = function () { pushSettings({ version: this.value }); };
@@ -303,6 +325,8 @@
   $('setCapSize').oninput = function () { pushSettings({ captionSize: parseFloat(this.value) }); };
   $('setScrSize').oninput = function () { pushSettings({ scriptureSize: parseFloat(this.value) }); };
   $('btnHide').onclick = function () { api('/api/hide', 'POST', {}); };
+  $('btnOverlayToggle').onclick=function(){pushSettings({overlayOn:settings.overlayOn===false});toast(settings.overlayOn?'Stream output enabled':'Stream output hidden');};
+  $('btnNextLyric').onclick=function(){api('/api/lyrics/next','POST',{}).catch(function(e){toast(e.message);});};$('btnHideLyrics').onclick=function(){api('/api/lyrics/hide','POST',{});};
   $('btnClearCaps').onclick = function () { committed = ''; interim = ''; api('/api/clear-captions', 'POST', {}); };
   $('btnCopy').onclick = function () {
     $('outUrl').select();
@@ -590,8 +614,7 @@
         var show = document.createElement('button'); show.className = 'primary'; show.textContent = 'Show hymn on stream';
         show.onclick = function () {
           if (!settings.liveLyricsEnabled || !settings.captionsOn) { toast('Enable captions and live lyrics in settings first.'); return; }
-          committed = h.lyrics[0]; interim = ''; sendCaption(true);
-          toast('Hymn text sent to the caption overlay');
+          api('/api/lyrics','POST',{title:h.title,author:h.author,lines:h.lyrics,index:0}).then(function(){toast('Hymn is on stream. Use Next lyric line to advance.');}).catch(function(e){toast(e.message);});
         };
         act.appendChild(show); card.appendChild(act); box.appendChild(card);
       });
@@ -606,11 +629,16 @@
     }
   }
   function noteSpeechActivity() {
-    if (settings.presentationMode === 'music' && settings.autoSwitchMode) {
-      speechFinalCount++;
-      if (speechFinalCount >= 3) { speechFinalCount = 0; setPresentationMode('sermon'); }
-    }
+    if (settings.presentationMode === 'music' && settings.autoSwitchMode) { speechFinalCount++; if (speechFinalCount >= 3) { speechFinalCount = 0; setPresentationMode('sermon'); } }
   }
+  function saveSongs(items){return api('/api/hymns','POST',{hymns:items}).then(function(r){toast('Library saved ('+r.count+' songs total)');if(items[0]&&items[0].title){$('txtHymnSearch').value=items[0].title;searchHymns(items[0].title);}return r;});}
+  $('btnSaveSong').onclick=function(){var title=$('songTitle').value.trim(),lyrics=$('songLyrics').value.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);if(!title||!lyrics.length){toast('Enter a title and at least one lyric line.');return;}saveSongs([{title:title,author:$('songAuthor').value.trim(),lyrics:lyrics}]).then(function(){$('songTitle').value='';$('songAuthor').value='';$('songLyrics').value='';}).catch(function(e){toast('Could not save song: '+e.message);});};
+  $('btnImportSongs').onclick=function(){try{var p=JSON.parse($('songImportJson').value),items=Array.isArray(p)?p:p.hymns;if(!Array.isArray(items)||!items.length)throw new Error('Expected a JSON array or { hymns: [...] }.');saveSongs(items).catch(function(e){toast('Import failed: '+e.message);});}catch(e){toast('Invalid JSON: '+e.message);}};
+  $('btnExportSongs').onclick=function(){fetch('/api/hymns?all=1').then(function(r){return r.json();}).then(function(d){var blob=new Blob([JSON.stringify(d.results||[],null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hymns-library.json';a.click();URL.revokeObjectURL(a.href);}).catch(function(){toast('Could not export library.');});};
+  var teleRunning=false,teleFrame=0;function updateTeleText(){$('teleView').textContent=$('teleText').value||'Teleprompter preview appears here.';}$('teleText').addEventListener('input',updateTeleText);$('teleMirror').onchange=function(){$('teleView').classList.toggle('mirror',this.checked);};
+  function teleStep(){if(!teleRunning)return;$('teleView').scrollTop+=(parseFloat($('teleSpeed').value)||0)*.45;teleFrame=requestAnimationFrame(teleStep);}function teleStart(){if(teleFrame)cancelAnimationFrame(teleFrame);teleRunning=true;$('btnTeleStart').textContent='Scrolling…';teleFrame=requestAnimationFrame(teleStep);}function telePause(){teleRunning=false;if(teleFrame)cancelAnimationFrame(teleFrame);teleFrame=0;$('btnTeleStart').textContent='Start scrolling';}
+  $('btnTeleStart').onclick=teleStart;$('btnTelePause').onclick=telePause;$('btnTeleReset').onclick=function(){telePause();$('teleView').scrollTop=0;};$('btnTeleFullscreen').onclick=function(){if($('teleView').requestFullscreen)$('teleView').requestFullscreen().catch(function(){toast('Fullscreen was blocked.');});};
+  document.addEventListener('keydown',function(e){var tag=(e.target&&e.target.tagName||'').toLowerCase();if(tag==='input'||tag==='textarea'||tag==='select'||(e.target&&e.target.isContentEditable))return;if(!(e.ctrlKey&&e.shiftKey))return;var k=e.key.toLowerCase();if(k==='l'){e.preventDefault();if(listening)stopListening();else startListening();}if(k==='m'){e.preventDefault();setPresentationMode(settings.presentationMode==='music'?'sermon':'music');}if(k==='o'){e.preventDefault();$('btnOverlayToggle').click();}if(k==='n'){e.preventDefault();api('/api/lyrics/next','POST',{}).catch(function(err){toast(err.message);});}if(k==='p'){e.preventDefault();if(teleRunning)telePause();else teleStart();}});
 
   /* ---------------- preview scaling ---------------- */
   function scalePreview() {
