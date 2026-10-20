@@ -30,6 +30,10 @@ const defaults = {
   scriptureSize: 2.7,      // vw
   captionClearAfter: 6,    // seconds of silence before captions fade
   position: 'bottom',      // bottom | top
+  presentationMode: 'auto', // auto | sermon | music
+  autoSwitchMode: false,    // operator-controlled safety default
+  hymnSearchEnabled: true,
+  liveLyricsEnabled: true,
 };
 const state = {
   settings: { ...defaults },
@@ -179,6 +183,20 @@ const server = http.createServer(async (req, res) => {
         autoShown,
         ms: Date.now() - t0,
       });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/hymns') {
+      if (!state.settings.hymnSearchEnabled) return sendJSON(res, 200, { results: [] });
+      const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      if (q.length < 2) return sendJSON(res, 200, { results: [] });
+      const hymns = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'hymns.json'), 'utf8'));
+      const terms = q.split(/\\s+/).filter(Boolean);
+      const results = hymns.map((h) => {
+        const hay = (h.title + ' ' + h.author + ' ' + h.lyrics.join(' ')).toLowerCase();
+        const hits = terms.filter((term) => hay.includes(term)).length;
+        return { ...h, score: hits / terms.length };
+      }).filter((h) => h.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+      return sendJSON(res, 200, { results });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/lookup') {
