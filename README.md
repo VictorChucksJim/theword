@@ -33,6 +33,20 @@ World English Bible (WEB), King James (KJV), American Standard (ASV), Bible in B
 
 Bible text comes from https://github.com/thiagobodruk/bible (MIT licence), cleaned by `tools/build-data.py`.
 
+## Church presentation modes (preview)
+
+The operator page now has three modes:
+
+- **Auto detect** (default): monitors the microphone spectrum for a likely music signal while leaving Scripture detection available. It suggests music mode; it does not switch automatically by default.
+- **Sermon / Scripture**: keeps the existing Scripture detection workflow active.
+- **Music / Lyrics**: pauses Scripture detection, sends recognized words to hymn search, and lets the operator put a selected public-domain hymn stanza into the caption overlay.
+
+The experimental music detector uses a lightweight browser audio-spectrum heuristic. It is not a trained music classifier and can confuse speech, instruments, crowd noise, and music. Use the manual mode buttons during a service unless you have tested the detector in your venue. The detector requests microphone permission separately from browser speech recognition.
+
+Hymn search is enabled by default and currently uses a small starter collection in `data/hymns.json`. Search can match hymn titles and included lyric text. It does not perform full song recognition, and it cannot identify arbitrary songs whose lyrics are not in the collection. Add only public-domain or church-authorized lyrics. Live lyric captions are enabled by default; the operator must confirm content before presenting it.
+
+Settings are held in server memory for the current run; they reset to defaults when the server restarts.
+
 ## Known limits of this first version
 
 - Browser speech recognition is decent but not perfect with strong accents, background music or a distant mic. A paid streaming service (Deepgram, AssemblyAI, Azure) is the natural upgrade and the rest of the app would not change.
