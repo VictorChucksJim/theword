@@ -346,6 +346,7 @@
 
   /* ---------------- detection ---------------- */
   function detect(text, final) {
+    if (settings.presentationMode === 'music') return Promise.resolve({ references: [], suggestions: [] });
     return api('/api/detect', 'POST', { text: text, final: final, sessionId: sessionId });
   }
   function handleDetection(res, text, lineEl) {
@@ -427,7 +428,7 @@
     text = text.trim(); if (!text) return;
     var line = addLine(text);
     committed = (committed + ' ' + text).trim().slice(-400); interim = '';
-    sendCaption(true);
+    sendCaption(true); useTranscriptForMusic(text); noteSpeechActivity();
     detect(text, true).then(function (res) { handleDetection(res, text, line); }).catch(function () {});
   }
   $('btnTest').onclick = function () { feedText($('txtTest').value); $('txtTest').value = ''; };
@@ -456,7 +457,7 @@
         committed = (committed + ' ' + t).trim().slice(-400);
         interim = '';
         showInterim('');
-        sendCaption(true);
+        sendCaption(true); useTranscriptForMusic(t); noteSpeechActivity();
         detect(t, true).then(function (res) { handleDetection(res, t, line); }).catch(function () {});
       });
       interim = inter.trim();
@@ -497,6 +498,119 @@
     if (!quiet) toast('Stopped listening');
   }
   $('btnMic').onclick = function () { if (listening) stopListening(); else startListening(); };
+
+  /* ---------------- church modes, music monitor and hymn matching ---------------- */
+  var monitorStream = null, monitorContext = null, monitorAnalyser = null, monitorTimer = null;
+  var musicWindows = [], speechFinalCount = 0, lastModeSuggestion = '';
+  function setPresentationMode(mode) {
+    if (['auto', 'sermon', 'music'].indexOf(mode) < 0) mode = 'auto';
+    pushSettings({ presentationMode: mode });
+    $('presentationMode').value = mode;
+    $('musicHint').textContent = mode === 'music'
+      ? 'Music mode: Scripture matching is paused. Captions and hymn matching are available; confirm lyrics before putting them on stream.'
+      : mode === 'sermon'
+        ? 'Sermon mode: Scripture detection is active. Music monitoring can continue in the background.'
+        : 'Auto mode watches for likely music and suggests a change. Automatic switching is ' + (settings.autoSwitchMode ? 'enabled (experimental).' : 'off; you remain in control.');
+    toast('Presentation mode: ' + (mode === 'auto' ? 'Auto detect' : mode === 'music' ? 'Music / Lyrics' : 'Sermon / Scripture'));
+  }
+  $('btnMusicToSermon').onclick = function () { setPresentationMode('sermon'); };
+  $('btnMusicToMusic').onclick = function () { setPresentationMode('music'); };
+  function setMusicStatus(text, active) {
+    $('musicStatusText').textContent = text;
+    $('musicStatus').className = 'pill' + (active ? ' live' : '');
+  }
+  function stopMusicMonitor() {
+    clearInterval(monitorTimer); monitorTimer = null;
+    if (monitorStream) monitorStream.getTracks().forEach(function (t) { t.stop(); });
+    if (monitorContext) monitorContext.close().catch(function () {});
+    monitorStream = null; monitorContext = null; monitorAnalyser = null; musicWindows = [];
+    $('btnMusicMonitor').textContent = 'Start music detector';
+    setMusicStatus('Music monitor off', false);
+  }
+  async function startMusicMonitor() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.AudioContext) {
+      toast('Music detection needs a supported browser and microphone permission.'); return;
+    }
+    try {
+      monitorStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      monitorContext = new AudioContext();
+      var source = monitorContext.createMediaStreamSource(monitorStream);
+      monitorAnalyser = monitorContext.createAnalyser(); monitorAnalyser.fftSize = 1024;
+      source.connect(monitorAnalyser);
+      var bins = new Uint8Array(monitorAnalyser.frequencyBinCount);
+      $('btnMusicMonitor').textContent = 'Stop music detector';
+      setMusicStatus('Listening for music…', true);
+      monitorTimer = setInterval(function () {
+        if (!monitorAnalyser) return;
+        monitorAnalyser.getByteFrequencyData(bins);
+        var total = 0, active = 0, weighted = 0;
+        for (var i = 1; i < bins.length; i++) {
+          total += bins[i]; if (bins[i] > 16) active++;
+          weighted += bins[i] * i;
+        }
+        var density = active / bins.length;
+        var centroid = total ? weighted / total / bins.length : 0;
+        var score = Math.min(1, density * 1.5 + centroid * 0.35);
+        musicWindows.push({ score: score, energy: total / bins.length });
+        if (musicWindows.length > 16) musicWindows.shift();
+        var activeWindows = musicWindows.filter(function (w) { return w.energy > 7 && w.score > 0.38; }).length;
+        var likely = musicWindows.length >= 10 && activeWindows >= 7;
+        if (likely) {
+          setMusicStatus('Likely music detected', true);
+          $('musicHint').textContent = 'The microphone spectrum looks music-like. This is a heuristic, not a reliable music classifier; confirm the mode before presentation.';
+          if (settings.presentationMode === 'auto' && lastModeSuggestion !== 'music') {
+            lastModeSuggestion = 'music'; toast('Possible music detected — switch to Music mode?');
+            if (settings.autoSwitchMode) setPresentationMode('music');
+          }
+        } else if (musicWindows.length >= 10) {
+          setMusicStatus('No strong music signal', true);
+          if (lastModeSuggestion === 'music') lastModeSuggestion = '';
+        }
+      }, 400);
+    } catch (e) {
+      stopMusicMonitor();
+      toast('Could not access the microphone for music detection.');
+    }
+  }
+  $('btnMusicMonitor').onclick = function () { if (monitorTimer) stopMusicMonitor(); else startMusicMonitor(); };
+
+  function searchHymns(query) {
+    query = String(query || '').trim();
+    if (!query || query.length < 2 || !settings.hymnSearchEnabled) return;
+    api('/api/hymns?q=' + encodeURIComponent(query)).then(function (data) {
+      var box = $('hymnResults'); box.innerHTML = '';
+      var results = data.results || [];
+      if (!results.length) { box.innerHTML = '<div class="emptybox">No matching hymn found in the included collection.</div>'; return; }
+      results.forEach(function (h) {
+        var card = document.createElement('div'); card.className = 'sugg';
+        var title = document.createElement('div'); title.className = 'label'; title.textContent = h.title; card.appendChild(title);
+        var by = document.createElement('div'); by.className = 'hint'; by.textContent = h.author; card.appendChild(by);
+        var lyrics = document.createElement('div'); lyrics.className = 'verse'; lyrics.textContent = h.lyrics.join(' / '); card.appendChild(lyrics);
+        var act = document.createElement('div'); act.className = 'actions';
+        var show = document.createElement('button'); show.className = 'primary'; show.textContent = 'Show hymn on stream';
+        show.onclick = function () {
+          if (!settings.liveLyricsEnabled || !settings.captionsOn) { toast('Enable captions and live lyrics in settings first.'); return; }
+          committed = h.lyrics[0]; interim = ''; sendCaption(true);
+          toast('Hymn text sent to the caption overlay');
+        };
+        act.appendChild(show); card.appendChild(act); box.appendChild(card);
+      });
+    }).catch(function () { toast('Hymn search is unavailable right now.'); });
+  }
+  $('btnHymnSearch').onclick = function () { searchHymns($('txtHymnSearch').value); };
+  $('txtHymnSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') searchHymns(this.value); });
+  function useTranscriptForMusic(text) {
+    if (settings.presentationMode === 'music' && settings.hymnSearchEnabled && text && text.trim().length >= 12) {
+      $('txtHymnSearch').value = text.trim().slice(0, 180);
+      searchHymns($('txtHymnSearch').value);
+    }
+  }
+  function noteSpeechActivity() {
+    if (settings.presentationMode === 'music' && settings.autoSwitchMode) {
+      speechFinalCount++;
+      if (speechFinalCount >= 3) { speechFinalCount = 0; setPresentationMode('sermon'); }
+    }
+  }
 
   /* ---------------- preview scaling ---------------- */
   function scalePreview() {
