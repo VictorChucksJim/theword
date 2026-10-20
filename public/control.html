@@ -135,6 +135,27 @@
       <p class="hint" style="margin:8px 0 0">Chrome uses the microphone chosen in its site settings (the padlock beside the address). Pick the mic or mixer feed that carries the preacher's voice.</p>
     </section>
 
+    <section class="card" id="musicModeCard">
+      <h2>Church presentation mode</h2>
+      <div class="row" style="margin-bottom:10px">
+        <label class="field" style="min-width:190px">Current mode
+          <select id="presentationMode">
+            <option value="auto">Auto detect (operator confirms)</option>
+            <option value="sermon">Sermon / Scripture</option>
+            <option value="music">Music / Lyrics</option>
+          </select>
+        </label>
+        <span class="pill" id="musicStatus"><span class="dot"></span><span id="musicStatusText">Music monitor off</span></span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="setAutoSwitch"> Automatically switch modes (experimental)</label>
+      <div class="row tight">
+        <button id="btnMusicMonitor">Start music detector</button>
+        <button id="btnMusicToSermon">Sermon mode</button>
+        <button id="btnMusicToMusic">Music mode</button>
+      </div>
+      <p class="hint" id="musicHint" style="margin:8px 0 0">Auto mode watches the microphone for likely music. Automatic switching is off by default; confirm changes manually during service.</p>
+    </section>
+
     <section class="card">
       <h2>Output for vMix</h2>
       <div class="urlbox">
@@ -159,6 +180,18 @@
         <button id="btnLookup">Look up</button>
       </div>
       <div id="suggestions"><div class="emptybox">When a speaker names a verse or paraphrases one, matches show up here. Pick a version and press <b>Show on stream</b>.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Hymn and lyric search</h2>
+      <label class="toggle"><input type="checkbox" id="setHymnSearch"> Enable hymn search</label>
+      <label class="toggle"><input type="checkbox" id="setLiveLyrics"> Show live captions in music mode</label>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="txtHymnSearch" style="flex:1;min-width:180px" placeholder="Search title or lyrics, e.g. Amazing grace">
+        <button id="btnHymnSearch">Search</button>
+      </div>
+      <div id="hymnResults"><div class="emptybox">Search the included starter collection of public-domain hymns. Recognized sung words can also help find a matching stanza.</div></div>
+      <p class="hint">The starter collection is intentionally small. Add more verified public-domain hymns or church-owned lyrics to data/hymns.json.</p>
     </section>
 
     <section class="card">
@@ -239,6 +272,10 @@
   /* ---------------- settings ---------------- */
   function syncSettingsUI() {
     $('setCaptionsOn').checked = !!settings.captionsOn;
+    $('presentationMode').value = settings.presentationMode || 'auto';
+    $('setAutoSwitch').checked = !!settings.autoSwitchMode;
+    $('setHymnSearch').checked = settings.hymnSearchEnabled !== false;
+    $('setLiveLyrics').checked = settings.liveLyricsEnabled !== false;
     $('setAutoRef').checked = !!settings.autoShowReferences;
     $('setAutoPara').checked = !!settings.autoShowParaphrase;
     $('setVersion').value = settings.version;
@@ -253,6 +290,10 @@
     api('/api/settings', 'POST', patch).catch(function () { toast('Could not save setting'); });
   }
   $('setCaptionsOn').onchange = function () { pushSettings({ captionsOn: this.checked }); };
+  $('presentationMode').onchange = function () { setPresentationMode(this.value); };
+  $('setAutoSwitch').onchange = function () { pushSettings({ autoSwitchMode: this.checked }); };
+  $('setHymnSearch').onchange = function () { pushSettings({ hymnSearchEnabled: this.checked }); };
+  $('setLiveLyrics').onchange = function () { pushSettings({ liveLyricsEnabled: this.checked }); };
   $('setAutoRef').onchange = function () { pushSettings({ autoShowReferences: this.checked }); };
   $('setAutoPara').onchange = function () { pushSettings({ autoShowParaphrase: this.checked }); };
   $('setVersion').onchange = function () { pushSettings({ version: this.value }); };
