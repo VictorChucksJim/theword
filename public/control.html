@@ -425,9 +425,14 @@
         // catch spoken references early, before the sentence is finished (throttled)
         clearTimeout(detectTimer);
         detectTimer = setTimeout(function () {
-          if (interim && interim !== lastInterimDetected) {
-            lastInterimDetected = interim;
-            detect(interim, false).then(function (res) { handleDetection(res, interim, null); }).catch(function () {});
+          // Snapshot the exact interim text analysed. Recognition may update `interim`
+          // while this request is in flight; never label an older result with newer words.
+          var candidate = interim;
+          if (candidate && candidate !== lastInterimDetected) {
+            lastInterimDetected = candidate;
+            detect(candidate, false).then(function (res) {
+              handleDetection(res, candidate, null);
+            }).catch(function () {});
           }
         }, 500);
       }
